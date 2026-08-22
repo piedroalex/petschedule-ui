@@ -1,6 +1,6 @@
 import React from "react";
-import { CadastrarTutor } from "./pages/tutores/CadastrarTutor";
+import { Dashboard } from "./pages/Dashboard";
 
 export default function App() {
-  return <CadastrarTutor />;
+  return <Dashboard />;
 }
