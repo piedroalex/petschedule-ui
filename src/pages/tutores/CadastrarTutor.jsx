@@ -4,7 +4,7 @@ import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
 import { maskCPF, maskTelefone } from "../../utils/masks";
 
-export function CadastrarTutor() {
+export function CadastrarTutor({ onNavigateToLogin }) {
   
   const [formData, setFormData] = useState({
     nomeCompleto: "",
@@ -100,6 +100,7 @@ export function CadastrarTutor() {
         email: formData.email,
         cpf: formData.cpf,
         telefone: formData.telefone,
+        senha: formData.senha,
         createdAt: new Date().toISOString(),
       };
 
@@ -127,7 +128,7 @@ export function CadastrarTutor() {
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
                
         <div className="bg-blue-600 p-6 sm:p-8 text-white text-center">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Cadastro do Tutor</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight"> Criar Conta de Tutor(a)</h1>
         </div>
 
         <div className="p-6 sm:p-8">
@@ -231,6 +232,19 @@ export function CadastrarTutor() {
               <p className="text-xs text-center text-slate-500 mt-2">
                 Ao se cadastrar, você concorda com os termos de agendamento da clínica.
               </p>
+              
+              <div className="mt-6 pt-6 border-t border-slate-100 text-center">
+                <p className="text-sm text-slate-600">
+                  Já possui uma conta cadastrada?{" "}
+                  <button
+                    type="button"
+                    onClick={onNavigateToLogin}
+                    className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors focus:outline-none focus:underline"
+                  >
+                    Fazer login
+                  </button>
+                </p>
+              </div>
             </form>
           )}
         </div>
