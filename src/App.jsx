@@ -1,43 +1,42 @@
-// src/App.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Login } from "./pages/Login";
 import { CadastrarTutor } from "./pages/tutores/CadastrarTutor";
+import { CadastrarPet } from "./pages/pets/CadastrarPet";
 import { Dashboard } from "./pages/Dashboard";
 
 export default function App() {
-  
-  const [currentScreen, setCurrentScreen] = useState("login");
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentScreen, setCurrentScreen] = useState("login"); // 'login' | 'register-tutor' | 'dashboard' | 'register-pet'
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const savedSession = localStorage.getItem("@petschedule:session");
-    if (savedSession) {
-      setCurrentUser(JSON.parse(savedSession));
+    const session = localStorage.getItem("@petschedule:session");
+    if (session) {
+      setUser(JSON.parse(session));
       setCurrentScreen("dashboard");
     }
   }, []);
 
-  function handleLoginSuccess(user) {
-    setCurrentUser(user);
+  function handleLoginSuccess(userData) {
+    setUser(userData);
     setCurrentScreen("dashboard");
   }
 
   function handleLogout() {
     localStorage.removeItem("@petschedule:session");
-    setCurrentUser(null);
+    setUser(null);
     setCurrentScreen("login");
   }
 
   return (
-    <>
+    <main>
       {currentScreen === "login" && (
         <Login
-          onNavigateToRegister={() => setCurrentScreen("register")}
           onLoginSuccess={handleLoginSuccess}
+          onNavigateToRegister={() => setCurrentScreen("cadastrar-tutor")}
         />
       )}
 
-      {currentScreen === "register" && (
+      {currentScreen === "cadastrar-tutor" && (
         <CadastrarTutor
           onNavigateToLogin={() => setCurrentScreen("login")}
         />
@@ -45,10 +44,19 @@ export default function App() {
 
       {currentScreen === "dashboard" && (
         <Dashboard
-          user={currentUser}
+          user={user}
+          onNavigateToNovoPet={() => setCurrentScreen("cadastrar-pet")}
           onLogout={handleLogout}
         />
       )}
-    </>
+
+      {currentScreen === "cadastrar-pet" && (
+        <CadastrarPet
+          tutorId={user?.id}
+          onPetCadastrado={() => setCurrentScreen("dashboard")}
+          onVoltar={() => setCurrentScreen("dashboard")}
+        />
+      )}
+    </main>
   );
 }
