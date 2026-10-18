@@ -3,6 +3,7 @@ import { Dog, Calendar, Weight, Tag, AlertCircle, CheckCircle2 } from "lucide-re
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
 import { Select } from "../../components/Select";
+import { petService } from "../../services/petService";
 
 export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
   const [formData, setFormData] = useState({
@@ -26,24 +27,19 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (errors[name] || errors.general) {
+      setErrors((prev) => ({ ...prev, [name]: undefined, general: undefined }));
     }
   }
 
   function validate() {
     const newErrors = {};
 
-    if (!formData.nome.trim()) {
-      newErrors.nome = "O nome do pet é obrigatório.";
-    }
-
-    if (!formData.especie) {
-      newErrors.especie = "A espécie é obrigatória.";
-    }
+    if (!formData.nome.trim()) newErrors.nome = "O nome do pet é obrigatório.";
+    if (!formData.especie) newErrors.especie = "A espécie é obrigatória.";
 
     if (formData.peso && (isNaN(Number(formData.peso)) || Number(formData.peso) <= 0)) {
-      newErrors.peso = "Informe um peso válido e positivo.";
+      newErrors.peso = "Informe um peso numérico válido.";
     }
 
     if (formData.dataNascimento) {
@@ -57,28 +53,20 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
     return Object.keys(newErrors).length === 0;
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
     if (!validate()) return;
 
     setIsSubmitting(true);
+    setErrors({});
     setSuccess(false);
 
     try {
-      // Simulação do Encontro 2 utilizando localStorage
-      const petsSalvos = JSON.parse(localStorage.getItem("@petschedule:pets") || "[]");
-
-      const novoPet = {
-        id: Date.now(),
+      const novoPet = await petService.cadastrar({
         ...formData,
-        peso: formData.peso ? parseFloat(formData.peso) : null,
-        tutorId: tutorId || 1, // Associa ao tutor autenticado
-        criadoEm: new Date().toISOString(),
-      };
-
-      petsSalvos.push(novoPet);
-      localStorage.setItem("@petschedule:pets", JSON.stringify(petsSalvos));
+        tutorId,
+      });
 
       setSuccess(true);
       setFormData({
@@ -89,11 +77,20 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
         peso: "",
       });
 
-      if (onPetCadastrado) {
-        onPetCadastrado(novoPet);
-      }
+      setTimeout(() => {
+        if (onPetCadastrado) onPetCadastrado(novoPet);
+      }, 1000);
     } catch (err) {
-      setErrors({ general: "Falha ao gravar os dados no armazenamento local." });
+      if (err.response) {
+        const apiError = err.response.data;
+        if (apiError.fields) {
+          setErrors(apiError.fields);
+        } else {
+          setErrors({ general: apiError.message || "Erro ao cadastrar o animal." });
+        }
+      } else {
+        setErrors({ general: "Não foi possível conectar ao servidor da API." });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -102,12 +99,12 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
-        
         <div className="bg-blue-600 p-6 text-white text-center">
+          <span className="inline-block bg-blue-500/60 text-blue-50 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+            PetSchedule
+          </span>
           <h1 className="text-2xl font-bold tracking-tight">Cadastrar Novo Pet</h1>
-          <p className="text-blue-100 text-sm mt-1">
-            Cadastre os dados clínicos e biológicos do animal.
-          </p>
+          <p className="text-blue-100 text-sm mt-1">Cadastre as informações clínicas do animal.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-4" noValidate>
@@ -121,14 +118,14 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
           {success && (
             <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-xl">
               <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
-              <span>Pet registado com sucesso!</span>
+              <span>Pet cadastrado com sucesso!</span>
             </div>
           )}
 
           <Input
             label="Nome do Pet *"
             name="nome"
-            placeholder="Ex: Thor, Mel, Luna"
+            placeholder="Ex: Thor, Mel"
             value={formData.nome}
             onChange={handleChange}
             error={errors.nome}
@@ -150,7 +147,7 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
             <Input
               label="Raça"
               name="raca"
-              placeholder="Ex: Poodle, SRD"
+              placeholder="Ex: Golden, Poodle"
               value={formData.raca}
               onChange={handleChange}
               error={errors.raca}
@@ -176,7 +173,7 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
               name="peso"
               type="number"
               step="0.01"
-              placeholder="Ex: 12.5"
+              placeholder="Ex: 14.5"
               value={formData.peso}
               onChange={handleChange}
               error={errors.peso}
@@ -198,12 +195,8 @@ export function CadastrarPet({ tutorId, onPetCadastrado, onVoltar }) {
               </Button>
             )}
 
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full sm:flex-1"
-            >
-              {isSubmitting ? "A guardar..." : "Salvar Pet"}
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:flex-1">
+              {isSubmitting ? "Salvando na API..." : "Salvar Pet"}
             </Button>
           </div>
         </form>

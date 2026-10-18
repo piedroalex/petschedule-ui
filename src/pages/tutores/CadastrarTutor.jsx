@@ -1,253 +1,188 @@
-import React, { useState } from "react";
-import { User, Mail, Lock, Phone, CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { User, Mail, FileText, Phone, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
-import { maskCPF, maskTelefone } from "../../utils/masks";
+import { tutorService } from "../../services/tutorService";
 
 export function CadastrarTutor({ onNavigateToLogin }) {
-  
   const [formData, setFormData] = useState({
-    nomeCompleto: "",
+    nome: "",
     email: "",
     cpf: "",
     telefone: "",
     senha: "",
-    confirmarSenha: "",
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   function handleChange(e) {
-    const { id, value } = e.target;
-    let formattedValue = value;
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
-    if (id === "cpf") 
-      formattedValue = maskCPF(value);
-    if (id === "telefone") 
-      formattedValue = maskTelefone(value);
-
-    setFormData((prev) => ({ ...prev, [id]: formattedValue }));
-
-    if (errors[id]) {
-      setErrors((prev) => ({ ...prev, [id]: null }));
+    if (errors[name] || errors.general) {
+      setErrors((prev) => ({ ...prev, [name]: undefined, general: undefined }));
     }
   }
 
   function validate() {
-    const errors = {};
+    const newErrors = {};
 
-    if (!formData.nomeCompleto.trim()) {
-      errors.nomeCompleto = "O nome completo é obrigatório.";
-    }
-
+    if (!formData.nome.trim()) newErrors.nome = "Nome completo é obrigatório.";
     if (!formData.email.trim()) {
-      errors.email = "O e-mail é obrigatório.";
+      newErrors.email = "E-mail é obrigatório.";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = "Insira um formato de e-mail válido.";
+      newErrors.email = "Formato de e-mail inválido.";
+    }
+    if (!formData.cpf.trim()) newErrors.cpf = "CPF é obrigatório.";
+    if (!formData.telefone.trim()) newErrors.telefone = "Telefone é obrigatório.";
+    if (!formData.senha || formData.senha.length < 6) {
+      newErrors.senha = "A senha deve ter no mínimo 6 caracteres.";
     }
 
-    if (!formData.cpf.trim() || formData.cpf.length < 14) {
-      errors.cpf = "CPF inválido (deve conter 11 dígitos).";
-    }
-
-    if (!formData.telefone.trim() || formData.telefone.length < 14) {
-      errors.telefone = "Telefone inválido com DDD.";
-    }
-
-    if (!formData.senha) {
-      errors.senha = "A senha é obrigatória.";
-    } else if (formData.senha.length < 6) {
-      errors.senha = "A senha deve ter no mínimo 6 caracteres.";
-    }
-
-    if (formData.senha !== formData.confirmarSenha) {
-      errors.confirmarSenha = "As senhas não coincidem.";
-    }
-
-    setErrors(errors);
-    return Object.keys(errors).length === 0;
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!validate()) 
-      return;
+    if (!validate()) return;
 
     setIsSubmitting(true);
+    setErrors({});
+    setSuccess(false);
 
-    setTimeout(() => {
-      const tutoresCadastrados = JSON.parse(localStorage.getItem("@petschedule:tutors") || "[]");
-
-      const emailExists = tutoresCadastrados.some((t) => t.email === formData.email);
-      const cpfExists = tutoresCadastrados.some((t) => t.cpf === formData.cpf);
-
-      if (emailExists || cpfExists) {
-        setErrors({
-          general: emailExists
-            ? "Este e-mail já está cadastrado."
-            : "Este CPF já está cadastrado.",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const novoTutor = {
-        id: crypto.randomUUID(),
-        nomeCompleto: formData.nomeCompleto,
-        email: formData.email,
-        cpf: formData.cpf,
-        telefone: formData.telefone,
-        senha: formData.senha,
-        createdAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem(
-        "@petschedule:tutors",
-        JSON.stringify([...tutoresCadastrados, novoTutor])
-      );
-
-      setIsSubmitting(false);
-      setSuccessMessage(true);
-
+    try {
+      await tutorService.cadastrar(formData);
+      setSuccess(true);
       setFormData({
-        nomeCompleto: "",
+        nome: "",
         email: "",
         cpf: "",
         telefone: "",
         senha: "",
-        confirmarSenha: "",
       });
-    }, 800);
+      setTimeout(() => {
+        onNavigateToLogin();
+      }, 2000);
+    } catch (err) {
+      if (err.response) {
+        const apiError = err.response.data;
+        if (apiError.fields) {
+          setErrors(apiError.fields);
+        } else {
+          setErrors({ general: apiError.message || "Erro ao realizar cadastro do tutor." });
+        }
+      } else {
+        setErrors({ general: "Não foi possível conectar ao servidor. Verifique se o back-end está ativo." });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-               
-        <div className="bg-blue-600 p-6 sm:p-8 text-white text-center">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight"> Criar Conta de Tutor(a)</h1>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+        <div className="bg-blue-600 p-6 text-white text-center">
+          <span className="inline-block bg-blue-500/60 text-blue-50 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+            PetSchedule
+          </span>
+          <h1 className="text-2xl font-bold tracking-tight">Criar Conta de Tutor</h1>
+          <p className="text-blue-100 text-sm mt-1">Preencha seus dados para começar a agendar atendimentos.</p>
         </div>
 
-        <div className="p-6 sm:p-8">
-          {successMessage ? (
-            <div className="text-center py-6">
-              <div className="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full text-green-600 mb-4">
-                <CheckCircle2 size={32} />
-              </div>
-              <h2 className="text-xl font-bold text-slate-800 mb-2">
-                Conta criada com sucesso!
-              </h2>
-              <p className="text-sm text-slate-600 mb-6">
-                Seu cadastro foi realizado. Você já pode acessar a plataforma.
-              </p>
-              <Button onClick={() => setSuccessMessage(false)}>
-                Realizar Login
-              </Button>
+        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-4" noValidate>
+          {errors.general && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl">
+              <AlertCircle size={18} className="shrink-0 text-red-600" />
+              <span>{errors.general}</span>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {errors.general && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
-                  <AlertCircle size={18} />
-                  <span>{errors.general}</span>
-                </div>
-              )}
-
-              <Input
-                id="nomeCompleto"
-                label="Nome Completo"
-                placeholder="Ex: Pedro Alex"
-                icon={User}
-                value={formData.nomeCompleto}
-                onChange={handleChange}
-                error={errors.nomeCompleto}
-              />
-
-              <Input
-                id="email"
-                type="email"
-                label="E-mail de Acesso"
-                placeholder="seu.email@exemplo.com"
-                icon={Mail}
-                value={formData.email}
-                onChange={handleChange}
-                error={errors.email}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  id="cpf"
-                  label="CPF"
-                  placeholder="000.000.000-00"
-                  icon={CreditCard}
-                  value={formData.cpf}
-                  onChange={handleChange}
-                  error={errors.cpf}
-                />
-
-                <Input
-                  id="telefone"
-                  label="Celular"
-                  placeholder="(00) 00000-0000"
-                  icon={Phone}
-                  value={formData.telefone}
-                  onChange={handleChange}
-                  error={errors.telefone}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  id="senha"
-                  type="password"
-                  label="Senha"
-                  placeholder="Mínimo 6 caracteres"
-                  icon={Lock}
-                  value={formData.senha}
-                  onChange={handleChange}
-                  error={errors.senha}
-                />
-
-                <Input
-                  id="confirmarSenha"
-                  type="password"
-                  label="Confirmar Senha"
-                  placeholder="Repita a senha"
-                  icon={Lock}
-                  value={formData.confirmarSenha}
-                  onChange={handleChange}
-                  error={errors.confirmarSenha}
-                />
-              </div>
-
-              <div className="pt-2">
-                <Button type="submit" isLoading={isSubmitting}>
-                  Finalizar Cadastro
-                </Button>
-              </div>
-
-              <p className="text-xs text-center text-slate-500 mt-2">
-                Ao se cadastrar, você concorda com os termos de agendamento da clínica.
-              </p>
-              
-              <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-                <p className="text-sm text-slate-600">
-                  Já possui uma conta cadastrada?{" "}
-                  <button
-                    type="button"
-                    onClick={onNavigateToLogin}
-                    className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors focus:outline-none focus:underline"
-                  >
-                    Fazer login
-                  </button>
-                </p>
-              </div>
-            </form>
           )}
-        </div>
+
+          {success && (
+            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-xl">
+              <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
+              <span>Cadastro realizado com sucesso! Redirecionando para o login...</span>
+            </div>
+          )}
+
+          <Input
+            label="Nome Completo *"
+            name="nome"
+            placeholder="Ex: João da Silva"
+            value={formData.nome}
+            onChange={handleChange}
+            error={errors.nome}
+            icon={User}
+            disabled={isSubmitting}
+          />
+
+          <Input
+            label="E-mail *"
+            name="email"
+            type="email"
+            placeholder="joao@exemplo.com"
+            value={formData.email}
+            onChange={handleChange}
+            error={errors.email}
+            icon={Mail}
+            disabled={isSubmitting}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="CPF *"
+              name="cpf"
+              placeholder="000.000.000-00"
+              value={formData.cpf}
+              onChange={handleChange}
+              error={errors.cpf}
+              icon={FileText}
+              disabled={isSubmitting}
+            />
+
+            <Input
+              label="Telefone *"
+              name="telefone"
+              placeholder="(86) 99999-9999"
+              value={formData.telefone}
+              onChange={handleChange}
+              error={errors.telefone}
+              icon={Phone}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <Input
+            label="Senha *"
+            name="senha"
+            type="password"
+            placeholder="Mínimo de 6 caracteres"
+            value={formData.senha}
+            onChange={handleChange}
+            error={errors.senha}
+            icon={Lock}
+            disabled={isSubmitting}
+          />
+
+          <div className="pt-2 flex flex-col gap-3">
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? "Cadastrando..." : "Finalizar Cadastro"}
+            </Button>
+
+            <button
+              type="button"
+              onClick={onNavigateToLogin}
+              disabled={isSubmitting}
+              className="text-xs font-semibold text-center text-slate-500 hover:text-blue-600 hover:underline mt-2 cursor-pointer"
+            >
+              Já possui cadastro? Fazer login
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

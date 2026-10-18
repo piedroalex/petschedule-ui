@@ -1,15 +1,29 @@
 import React, { useState, useEffect } from "react";
-import { LogOut, Calendar, PlusCircle, Dog, Tag, Weight } from "lucide-react";
+import { LogOut, Calendar, PlusCircle, Dog, Tag, Weight, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "../components/Button";
+import { petService } from "../services/petService";
 
 export function Dashboard({ user, onNavigateToNovoPet, onLogout }) {
   const [pets, setPets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Carrega os pets persistidos no localStorage vinculados ao tutor logado
-    const petsSalvos = JSON.parse(localStorage.getItem("@petschedule:pets") || "[]");
-    const petsDoTutor = petsSalvos.filter((p) => p.tutorId === user?.id);
-    setPets(petsDoTutor);
+    async function carregarPets() {
+      if (!user?.id) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const dados = await petService.listarPorTutor(user.id);
+        setPets(dados);
+      } catch (err) {
+        setError("Não foi possível carregar os animais cadastrados.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    carregarPets();
   }, [user]);
 
   function formatarData(dataIso) {
@@ -34,7 +48,7 @@ export function Dashboard({ user, onNavigateToNovoPet, onLogout }) {
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-semibold text-slate-800">
-                {user?.nomeCompleto || "Tutor"}
+                {user?.nome || "Tutor"}
               </p>
               <p className="text-xs text-slate-500">{user?.email}</p>
             </div>
@@ -50,29 +64,18 @@ export function Dashboard({ user, onNavigateToNovoPet, onLogout }) {
       </header>
 
       <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Banner de Boas-Vindas */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 sm:p-8 text-white shadow-lg mb-8 flex flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">
-              Olá, {user?.nomeCompleto?.split(" ")[0] || "Tutor"}!
+              Olá, {user?.nome?.split(" ")[0] || "Tutor"}!
             </h1>
             <p className="text-blue-100 text-sm mt-1">
               Gerencie seus animais de estimação e agende novos atendimentos.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onNavigateToNovoPet}
-            className="!w-auto shrink-0 px-3.5 py-2 text-xs sm:text-sm bg-white text-blue-700 hover:bg-blue-50 shadow-sm cursor-pointer"
-          >
-            <PlusCircle size={16} /> Cadastrar Novo Pet
-          </Button>
         </div>
 
-        {/* Grid de Seções */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card: Meus Pets */}
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -84,9 +87,19 @@ export function Dashboard({ user, onNavigateToNovoPet, onLogout }) {
                 </span>
               </div>
 
-              {pets.length === 0 ? (
+              {loading ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <Loader2 size={24} className="animate-spin text-blue-600" />
+                  <span className="text-xs">Consultando base de dados...</span>
+                </div>
+              ) : error ? (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+                  <AlertCircle size={16} />
+                  <span>{error}</span>
+                </div>
+              ) : pets.length === 0 ? (
                 <div className="text-center py-8 text-slate-500 text-sm border-2 border-dashed border-slate-100 rounded-lg">
-                  <p>Nenhum pet cadastrado ainda.</p>
+                  <p>Nenhum pet cadastrado no banco de dados.</p>
                   <button
                     onClick={onNavigateToNovoPet}
                     className="mt-2 text-xs text-blue-600 font-semibold hover:underline cursor-pointer"
@@ -135,9 +148,18 @@ export function Dashboard({ user, onNavigateToNovoPet, onLogout }) {
               )}
             </div>
 
+            {pets.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-slate-100 text-right">
+                <button
+                  onClick={onNavigateToNovoPet}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                >
+                  + Adicionar outro pet
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Card: Próximos Agendamentos */}
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-slate-800 text-lg flex items-center gap-2">

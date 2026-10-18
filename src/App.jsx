@@ -5,14 +5,19 @@ import { CadastrarPet } from "./pages/pets/CadastrarPet";
 import { Dashboard } from "./pages/Dashboard";
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState("login"); // 'login' | 'register-tutor' | 'dashboard' | 'register-pet'
+  const [currentScreen, setCurrentScreen] = useState("login");
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const session = localStorage.getItem("@petschedule:session");
-    if (session) {
-      setUser(JSON.parse(session));
-      setCurrentScreen("dashboard");
+    try {
+      const session = localStorage.getItem("@petschedule:session");
+      if (session && session !== "undefined") {
+        setUser(JSON.parse(session));
+        setCurrentScreen("dashboard");
+      }
+    } catch (err) {
+      localStorage.removeItem("@petschedule:session");
+      setCurrentScreen("login");
     }
   }, []);
 
@@ -32,11 +37,11 @@ export default function App() {
       {currentScreen === "login" && (
         <Login
           onLoginSuccess={handleLoginSuccess}
-          onNavigateToRegister={() => setCurrentScreen("cadastrar-tutor")}
+          onNavigateToRegister={() => setCurrentScreen("register-tutor")}
         />
       )}
 
-      {currentScreen === "cadastrar-tutor" && (
+      {currentScreen === "register-tutor" && (
         <CadastrarTutor
           onNavigateToLogin={() => setCurrentScreen("login")}
         />
@@ -45,12 +50,12 @@ export default function App() {
       {currentScreen === "dashboard" && (
         <Dashboard
           user={user}
-          onNavigateToNovoPet={() => setCurrentScreen("cadastrar-pet")}
+          onNavigateToNovoPet={() => setCurrentScreen("register-pet")}
           onLogout={handleLogout}
         />
       )}
 
-      {currentScreen === "cadastrar-pet" && (
+      {currentScreen === "register-pet" && (
         <CadastrarPet
           tutorId={user?.id}
           onPetCadastrado={() => setCurrentScreen("dashboard")}
